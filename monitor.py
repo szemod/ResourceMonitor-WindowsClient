@@ -19,11 +19,11 @@ if os.path.exists(DATA_FILE):
 
 prev_net_io = psutil.net_io_counters()
 prev_disk_io = psutil.disk_io_counters()
-cpu_usage = 0.0  # Globális változó a CPU használat tárolására
+cpu_usage = 0.0  
 
 
 def monitor_cpu():
-    """Folyamatosan frissíti a CPU használatot háttérben."""
+
     global cpu_usage
     while True:
         cpu_usage = psutil.cpu_percent(interval=1)
@@ -31,7 +31,7 @@ def monitor_cpu():
 
 
 def monitor_system_resources():
-    """Folyamatosan gyűjti az adatokat a rendszer erőforrásairól háttérben."""
+
     global prev_net_io, prev_disk_io, history, cpu_usage
 
     while True:
@@ -52,8 +52,8 @@ def monitor_system_resources():
         current_time = datetime.now()
 
         new_entry = {
-            'time': current_time.strftime('%H:%M:%S'),  # Csak óra, perc, másodperc
-            'timestamp': current_time.timestamp(),  # Unix timestamp a pontos szűréshez
+            'time': current_time.strftime('%H:%M:%S'),  
+            'timestamp': current_time.timestamp(),  
             'cpu': cpu_usage,
             'memory': memory,
             'network_sent': net_sent,
@@ -66,8 +66,7 @@ def monitor_system_resources():
 
         history.append(new_entry)
 
-        # **Javítás: mostmár ténylegesen csak az utolsó 168 órát tároljuk**
-        one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600  # 168 óra = 168 * 3600 másodperc
+        one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600  
         history = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
 
         save_history()
@@ -75,13 +74,13 @@ def monitor_system_resources():
 
 
 def save_history():
-    """Előzmények mentése fájlba."""
+
     with open(DATA_FILE, "w") as file:
         json.dump(history, file)
 
 
 def filter_data_by_period(data, period_in_hours):
-    """Az adatokat szűri a megadott időszak szerint."""
+
     current_time = datetime.now().timestamp()
     period_in_seconds = period_in_hours * 3600
     filtered_data = [entry for entry in data if entry['timestamp'] >= current_time - period_in_seconds]
@@ -89,14 +88,14 @@ def filter_data_by_period(data, period_in_hours):
 
 
 def average_data(data, period_in_hours):
-    """Az adatokat átlagolja a megadott időszak szerint."""
+
     if not data:
         return []
 
     if period_in_hours == 0.5:
         return data
 
-    # Az átlagolás mértéke
+
     if period_in_hours == 8:
         step = 16
     elif period_in_hours == 24:
@@ -125,11 +124,9 @@ def average_data(data, period_in_hours):
     return averaged_data
 
 
-# Indítsunk egy külön szálat a CPU monitorozásra
 cpu_thread = threading.Thread(target=monitor_cpu, daemon=True)
 cpu_thread.start()
 
-# Indítsunk egy külön szálat az erőforrások monitorozására
 resource_thread = threading.Thread(target=monitor_system_resources, daemon=True)
 resource_thread.start()
 
