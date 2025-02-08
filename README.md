@@ -1,5 +1,5 @@
 # ResourceMonitorService
-This is a simple Resource Monitor Service for Windows that uses very few resources, inspired by "Monitorix," available on Debian.
+This is a simple Resource Monitor Service for Windows that uses very few resources, inspired by "Monitorix" available on Debian.
 The resource values from the last 168 hours are stored in the history.json file in FIFO mode. 
 In the 30-minute views, the measured data is updated every second, while in other views, time-weighted average values are displayed.
 
