@@ -19,5 +19,5 @@ To run this as a headless, non-stopping service, follow these steps:
 9. Click the "Install service" button.
 10. Start the service. Now that the service has been created, you can start it from the Windows Services menu or from the command line using the following command: net start ResourceMonitorService
 
-You can access it remotely on the local network at <IP Address>:5553.
+You can access it remotely on the local network at IP_Address:5553. (port:5553)
 ![image](https://github.com/user-attachments/assets/20eb1134-747b-4346-aef2-1117f9c9abd3)
