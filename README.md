@@ -21,6 +21,6 @@ To run this as a headless, non-stopping service, follow these steps:
    **Application Path:** Specify the path to the Python executable, e.g.: C:\Path\to\your\python\python.exe
    **Arguments:** Specify the script file name: C:\Path\to\your\project\monitor.py
    **Startup Directory:** Specify the project folder where monitor.py is located: C:\Path\to\your\project
-9. Click the "Install service" button.
-10. Start the service. Now that the service has been created, you can start it from the Windows Services menu or from the command line using the following command: net start ResourceMonitorService
+10. Click the "Install service" button.
+11. Start the service. Now that the service has been created, you can start it from the Windows Services menu or from the command line using the following command: net start ResourceMonitorService
 
