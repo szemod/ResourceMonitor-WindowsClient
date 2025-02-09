@@ -14,7 +14,9 @@ if os.path.exists(DATA_FILE):
     try:
         with open(DATA_FILE, "r") as file:
             history = json.load(file)
-    except json.JSONDecodeError:
+            if not isinstance(history, list):  
+                history = []
+    except (json.JSONDecodeError, ValueError):
         history = []
 
 prev_net_io = psutil.net_io_counters()
@@ -26,8 +28,8 @@ def monitor_cpu():
 
     global cpu_usage
     while True:
-        cpu_usage = psutil.cpu_percent(interval=1)
-        time.sleep(1)
+        cpu_usage = psutil.cpu_percent(interval=None)  
+        time.sleep(2)  
 
 
 def monitor_system_resources():
@@ -52,8 +54,8 @@ def monitor_system_resources():
         current_time = datetime.now()
 
         new_entry = {
-            'time': current_time.strftime('%H:%M:%S'),  
-            'timestamp': current_time.timestamp(),  
+            'time': current_time.strftime('%H:%M:%S'),
+            'timestamp': current_time.timestamp(),
             'cpu': cpu_usage,
             'memory': memory,
             'network_sent': net_sent,
@@ -62,21 +64,20 @@ def monitor_system_resources():
             'disk_write': disk_write
         }
 
-        print(f"New Data: {new_entry}")  # Debug log
-
         history.append(new_entry)
 
-        one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600  
+        one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600
         history = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
 
-        save_history()
-        time.sleep(1)
+        time.sleep(2)  
 
 
 def save_history():
 
-    with open(DATA_FILE, "w") as file:
-        json.dump(history, file)
+    while True:
+        with open(DATA_FILE, "w") as file:
+            json.dump(history, file)
+        time.sleep(10)  
 
 
 def filter_data_by_period(data, period_in_hours):
@@ -88,14 +89,14 @@ def filter_data_by_period(data, period_in_hours):
 
 
 def average_data(data, period_in_hours):
-
+    
     if not data:
         return []
 
     if period_in_hours == 0.5:
         return data
 
-
+    # Az átlagolás mértéke
     if period_in_hours == 8:
         step = 16
     elif period_in_hours == 24:
@@ -123,33 +124,30 @@ def average_data(data, period_in_hours):
 
     return averaged_data
 
-
 cpu_thread = threading.Thread(target=monitor_cpu, daemon=True)
 cpu_thread.start()
 
 resource_thread = threading.Thread(target=monitor_system_resources, daemon=True)
 resource_thread.start()
 
+save_thread = threading.Thread(target=save_history, daemon=True)
+save_thread.start()
 
 @app.route('/')
 def index():
     return render_template('index.html', period='0.5')
 
-
 @app.route('/8')
 def index_8h():
     return render_template('index.html', period='8')
-
 
 @app.route('/24')
 def index_24h():
     return render_template('index.html', period='24')
 
-
 @app.route('/168')
 def index_168h():
     return render_template('index.html', period='168')
-
 
 @app.route('/data')
 def data():
@@ -162,4 +160,4 @@ def data():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5553, debug=True)
+    app.run(host='0.0.0.0', port=5553, debug=False)
