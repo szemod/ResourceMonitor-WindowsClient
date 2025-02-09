@@ -51,6 +51,16 @@
       .period-button.active {
         background-color: #27ae60;
       }
+
+      /* Media query for narrow screens (e.g., mobile phones) */
+      @media (max-aspect-ratio: 1/1) {
+        .chart-item {
+          width: 90%; /* Make charts take up more width on narrow screens */
+        }
+        .chart-container {
+          flex-direction: column; /* Stack charts vertically */
+        }
+      }
     </style>
   </head>
   <body>
@@ -232,7 +242,6 @@
         charts.networkChart.update();
       }
 
-      // Aktív gomb beállítása
       function setActiveButton() {
         const period = window.location.pathname.substring(1) || '0.5';
         const buttons = document.querySelectorAll('.period-button');
@@ -246,7 +255,7 @@
       }
 
       fetchData();
-      setInterval(fetchData, 1000);
+      setInterval(fetchData, 2000);  
       setActiveButton();
     </script>
   </body>
