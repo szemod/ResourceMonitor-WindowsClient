@@ -207,8 +207,10 @@
             }
         });
 
+        let fetchInterval = 2000; // 2 másodperc
+
         async function fetchData() {
-            const period = window.location.pathname.substring(1) || '0.5';
+            const period = window.location.pathname.substr(1) || '0.5';
             try {
                 const response = await fetch(`/data?period=${period}`);
                 const data = await response.json();
@@ -253,10 +255,11 @@
         document.addEventListener("DOMContentLoaded", function () {
             setActiveButton();
             updateViewPeriod();
+            setInterval(fetchData, fetchInterval);
         });
 
         function setActiveButton() {
-            const period = window.location.pathname.substring(1) || '0.5';
+            const period = window.location.pathname.substr(1) || '0.5';
             const buttons = document.querySelectorAll('.period-button');
             buttons.forEach(button => {
                 if (button.id === period) {
@@ -281,8 +284,7 @@
             viewPeriodElement.textContent = `View: ${periodMap[period] || 'Unknown'}`;
         }
 
-        fetchData();
-        setInterval(fetchData, 2000);
+        fetchData(); // Inicializáló adatlekérdezés
     </script>
 </body>
 </html>
