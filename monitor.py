@@ -14,38 +14,34 @@ if os.path.exists(DATA_FILE):
     try:
         with open(DATA_FILE, "r") as file:
             history = json.load(file)
-            if not isinstance(history, list):  
+            if not isinstance(history, list):  # Handle non-list cases
                 history = []
     except (json.JSONDecodeError, ValueError):
         history = []
 
 prev_net_io = psutil.net_io_counters()
 prev_disk_io = psutil.disk_io_counters()
-cpu_usage = 0.0  
-
+cpu_usage = 0.0
 
 def monitor_cpu():
-
+    """Continuously update CPU usage in the background."""
     global cpu_usage
     while True:
-        cpu_usage = psutil.cpu_percent(interval=None)  
-        time.sleep(2)  
-
+        cpu_usage = psutil.cpu_percent(interval=None)
+        time.sleep(2)
 
 def monitor_system_resources():
-
+    """Continuously collect system resource data in the background."""
     global prev_net_io, prev_disk_io, history, cpu_usage
 
     while True:
         memory = psutil.virtual_memory().percent
 
-        # Network usage
         current_net_io = psutil.net_io_counters()
         net_sent = int((current_net_io.bytes_sent - prev_net_io.bytes_sent) / 1024)
         net_recv = int((current_net_io.bytes_recv - prev_net_io.bytes_recv) / 1024)
         prev_net_io = current_net_io
 
-        # Disk usage
         current_disk_io = psutil.disk_io_counters()
         disk_read = (current_disk_io.read_bytes - prev_disk_io.read_bytes) / 1024
         disk_write = (current_disk_io.write_bytes - prev_disk_io.write_bytes) / 1024
@@ -69,42 +65,30 @@ def monitor_system_resources():
         one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600
         history = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
 
-        time.sleep(2)  
-
+        time.sleep(2)
 
 def save_history():
-
+    """Save history to a file periodically."""
     while True:
         with open(DATA_FILE, "w") as file:
             json.dump(history, file)
-        time.sleep(10)  
-
+        time.sleep(10)
 
 def filter_data_by_period(data, period_in_hours):
-
+    """Filter data based on the specified time period."""
     current_time = datetime.now().timestamp()
     period_in_seconds = period_in_hours * 3600
-    filtered_data = [entry for entry in data if entry['timestamp'] >= current_time - period_in_seconds]
-    return filtered_data
-
+    return [entry for entry in data if entry['timestamp'] >= current_time - period_in_seconds]
 
 def average_data(data, period_in_hours):
-    
+    """Average the data over the specified time period."""
     if not data:
         return []
 
     if period_in_hours == 0.5:
         return data
 
-    # Az átlagolás mértéke
-    if period_in_hours == 8:
-        step = 16
-    elif period_in_hours == 24:
-        step = 48
-    elif period_in_hours == 168:
-        step = 336
-    else:
-        step = 1
+    step = {8: 16, 24: 48, 168: 336}.get(period_in_hours, 1)
 
     averaged_data = []
     for i in range(0, len(data), step):
@@ -124,30 +108,18 @@ def average_data(data, period_in_hours):
 
     return averaged_data
 
-cpu_thread = threading.Thread(target=monitor_cpu, daemon=True)
-cpu_thread.start()
-
-resource_thread = threading.Thread(target=monitor_system_resources, daemon=True)
-resource_thread.start()
-
-save_thread = threading.Thread(target=save_history, daemon=True)
-save_thread.start()
+# Start monitoring threads
+threading.Thread(target=monitor_cpu, daemon=True).start()
+threading.Thread(target=monitor_system_resources, daemon=True).start()
+threading.Thread(target=save_history, daemon=True).start()
 
 @app.route('/')
 def index():
     return render_template('index.html', period='0.5')
 
-@app.route('/8')
-def index_8h():
-    return render_template('index.html', period='8')
-
-@app.route('/24')
-def index_24h():
-    return render_template('index.html', period='24')
-
-@app.route('/168')
-def index_168h():
-    return render_template('index.html', period='168')
+@app.route('/<int:period_in_hours>')
+def index_period(period_in_hours):
+    return render_template('index.html', period=period_in_hours)
 
 @app.route('/data')
 def data():
@@ -157,7 +129,6 @@ def data():
     filtered_data = filter_data_by_period(history, period_in_hours)
     averaged_data = average_data(filtered_data, period_in_hours)
     return jsonify(averaged_data)
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5553, debug=False)
