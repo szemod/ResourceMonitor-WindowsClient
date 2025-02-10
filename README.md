@@ -4,7 +4,7 @@ The resource values from the last 168 hours are stored in the history.json file 
 In the 30-minute views, the measured data is updated promptly on the diagram, while in other views, time-weighted average values are displayed.
 Optimal refresh and storage timers were set to ensure the lowest possible resource usage.
 
-You can access it remotely on the local network at IP_Address:5553. (port:5553), the view dynamically changes for a more user-friendly display, ensuring the values are visible on mobile devices.
+You can access it remotely on the local network at IP_Address:5553. (port:5553), the view dynamically changes for a more user-friendly display, ensuring the values are visible on monitor and mobile devices.
 ![image](https://github.com/user-attachments/assets/29a753bc-4067-47f7-902d-aaa7e43b1cc6)
 
 To run this as a headless, non-stopping service, follow these steps:
