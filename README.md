@@ -5,7 +5,8 @@ In the 30-minute views, the measured data is updated promptly on the diagram, wh
 Optimal refresh and storage timers were set to ensure the lowest possible resource usage.
 
 You can access it remotely on the local network at IP_Address:5553. (port:5553), the view dynamically changes for a more user-friendly display, ensuring the values are visible on monitor and mobile devices.
-![image](https://github.com/user-attachments/assets/29a753bc-4067-47f7-902d-aaa7e43b1cc6)
+![image](https://github.com/user-attachments/assets/29a753bc-4067-47f7-902d-aaa7e43b1cc6) ![image](https://github.com/user-attachments/assets/dd9b6389-37c3-4f0f-835a-6d01a760751e)
+
 
 Prerequisite: python latest verion installed on OS.
 
