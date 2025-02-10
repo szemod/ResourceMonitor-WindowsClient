@@ -9,12 +9,13 @@ import time
 app = Flask(__name__)
 DATA_FILE = "history.json"
 
+"""Load history from file if it exists"""
 history = []
 if os.path.exists(DATA_FILE):
     try:
         with open(DATA_FILE, "r") as file:
             history = json.load(file)
-            if not isinstance(history, list):  # Handle non-list cases
+            if not isinstance(history, list):  # Non-list case handling
                 history = []
     except (json.JSONDecodeError, ValueError):
         history = []
@@ -23,18 +24,12 @@ prev_net_io = psutil.net_io_counters()
 prev_disk_io = psutil.disk_io_counters()
 cpu_usage = 0.0
 
-def monitor_cpu():
-    """Continuously update CPU usage in the background."""
-    global cpu_usage
-    while True:
-        cpu_usage = psutil.cpu_percent(interval=None)
-        time.sleep(2)
-
 def monitor_system_resources():
-    """Continuously collect system resource data in the background."""
+    """Collect system resource data periodically."""
     global prev_net_io, prev_disk_io, history, cpu_usage
 
     while True:
+        cpu_usage = psutil.cpu_percent(interval=1)  
         memory = psutil.virtual_memory().percent
 
         current_net_io = psutil.net_io_counters()
@@ -48,7 +43,6 @@ def monitor_system_resources():
         prev_disk_io = current_disk_io
 
         current_time = datetime.now()
-
         new_entry = {
             'time': current_time.strftime('%H:%M:%S'),
             'timestamp': current_time.timestamp(),
@@ -63,16 +57,31 @@ def monitor_system_resources():
         history.append(new_entry)
 
         one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600
-        history = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
+        history[:] = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
 
-        time.sleep(2)
+        time.sleep(3)  # Alvás a CPU terhelés csökkentéséért
 
 def save_history():
     """Save history to a file periodically."""
     while True:
         with open(DATA_FILE, "w") as file:
             json.dump(history, file)
-        time.sleep(10)
+        time.sleep(60)
+
+threading.Thread(target=monitor_system_resources, daemon=True).start()
+threading.Thread(target=save_history, daemon=True).start()
+
+@app.route('/')
+@app.route('/<int:period_in_hours>')
+def index(period_in_hours=0.5):
+    return render_template('index.html', period=period_in_hours)
+
+@app.route('/data')
+def data():
+    period = float(request.args.get('period', '0.5'))
+    filtered_data = filter_data_by_period(history, period)
+    averaged_data = average_data(filtered_data, period)
+    return jsonify(averaged_data)
 
 def filter_data_by_period(data, period_in_hours):
     """Filter data based on the specified time period."""
@@ -84,9 +93,6 @@ def average_data(data, period_in_hours):
     """Average the data over the specified time period."""
     if not data:
         return []
-
-    if period_in_hours == 0.5:
-        return data
 
     step = {8: 16, 24: 48, 168: 336}.get(period_in_hours, 1)
 
@@ -107,28 +113,6 @@ def average_data(data, period_in_hours):
             averaged_data.append(avg_entry)
 
     return averaged_data
-
-# Start monitoring threads
-threading.Thread(target=monitor_cpu, daemon=True).start()
-threading.Thread(target=monitor_system_resources, daemon=True).start()
-threading.Thread(target=save_history, daemon=True).start()
-
-@app.route('/')
-def index():
-    return render_template('index.html', period='0.5')
-
-@app.route('/<int:period_in_hours>')
-def index_period(period_in_hours):
-    return render_template('index.html', period=period_in_hours)
-
-@app.route('/data')
-def data():
-    global history
-    period = request.args.get('period', '0.5')
-    period_in_hours = float(period)
-    filtered_data = filter_data_by_period(history, period_in_hours)
-    averaged_data = average_data(filtered_data, period_in_hours)
-    return jsonify(averaged_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5553, debug=False)
