@@ -59,8 +59,8 @@ def monitor_system_resources():
         one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600
         history[:] = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
 
-        time.sleep(3)  # Alvás a CPU terhelés csökkentéséért
-
+        time.sleep(3)  
+        
 def save_history():
     """Save history to a file periodically."""
     while True:
