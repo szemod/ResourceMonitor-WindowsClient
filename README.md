@@ -1,8 +1,6 @@
-# ResourceMonitorService
-This is a simple Python based Resource Monitor Service for Windows that uses very few resources, inspired by "Monitorix" available on Debian.
-The resource values from the last 168 hours are stored in the history.json file in FIFO mode. 
-In the 30-minute views, the measured data is updated promptly on the diagram, while in other views, time-weighted average values are displayed.
-Optimal refresh and storage timers were set to ensure the lowest possible resource usage.
+# Resource Monitor
+
+Resource Monitor is a Python-based application that continuously monitors system resources such as CPU, memory, disk I/O, and network usage. The application provides a web-based interface for visualizing the data over specified time periods. 
 
 You can access it remotely on the local network at IP_Address:5553. (port:5553), the view dynamically changes for a more user-friendly display, ensuring the values are visible on monitor and mobile devices.
 (Desktop view)
@@ -10,23 +8,67 @@ You can access it remotely on the local network at IP_Address:5553. (port:5553),
 (Phone view)
 ![image](https://github.com/user-attachments/assets/dd9b6389-37c3-4f0f-835a-6d01a760751e)
 
+## Features
 
-Prerequisite: python latest verion installed on OS.
+- Real-time monitoring of:
+  - CPU usage
+  - Memory usage
+  - Disk read/write speeds
+  - Network sent/received data
+- Historical data retention for up to 168 hours
+- Dynamic updating of charts using Chart.js
+- Configurable monitoring port
+- Simple installation process via an Inno Setup installer
 
-To run this as a headless, non-stopping service, follow these steps:
-1. Download NSSM. Extract the downloaded file and copy nssm.exe to an appropriate location on your system (e.g., C:\Windows\nssm.exe).
-2. Create a Python virtual environment (optional but recommended).
-3. Navigate to your project directory: cd C:\Path\to\your\project
-4. Create and activate the virtual environment:
-   python -m venv venv
-   .\venv\Scripts\activate
-5. Install the required packages: pip install psutil flask
-6. Open the Command Prompt as an Administrator.
-7. Use the following command to create the service: nssm install ResourceMonitorService
-8. Configure the service in the opened window:
-   **Application Path:** Specify the path to the Python executable, e.g.: C:\Path\to\your\python\python.exe
-   **Arguments:** Specify the script file name: C:\Path\to\your\project\monitor.py
-   **Startup Directory:** Specify the project folder where monitor.py is located: C:\Path\to\your\project
-10. Click the "Install service" button.
-11. Start the service. Now that the service has been created, you can start it from the Windows Services menu or from the command line using the following command: net start ResourceMonitorService
+## Getting Started
 
+### Prerequisites
+
+- Python 3.x installed on your system.
+- Access to the command line or terminal.
+
+### Installation Steps
+
+1. **Download the Installer:**
+   - Download the `ResourceMonitorInstaller.exe` from the GitHub repository.
+
+2. **Run the Installer:**
+   - Double-click `ResourceMonitorInstaller.exe` to run the setup.
+
+3. **Follow the Setup Wizard:**
+   - You will be prompted to enter:
+     - **Service Name:** (default is `ResourceMonitor`)
+     - **Resource Monitor Port:** (default is `5553`)
+   - Complete the installation by following the prompts in the setup wizard.
+
+4. **Python Virtual Environment Setup:**
+   - The installer will automatically create a Python virtual environment in the installation directory and install the required packages (`psutil` and `flask`).
+
+5. **Service Installation:**
+   - The installer will set up the Resource Monitor as a Windows service, which means it will run in the background.
+
+6. **Start the Service:**
+   - The service will be started automatically after installation.
+
+### Accessing the Web Interface
+
+- Once installed, open your web browser and navigate to `http://localhost:PORT` where `PORT` is the port number you specified during installation (default is `5553`).
+
+### Usage
+
+- The web interface provides interactive charts displaying real-time data on CPU, memory, disk, and network usage.
+- The data can be viewed over different time periods (30 minutes, 8 hours, 24 hours, and 168 hours) by clicking the corresponding buttons on the page.
+
+### Data Management
+
+- The application saves historical data to a file named `history.json` in the installation directory, ensuring that data is retained across sessions.
+
+### Uninstallation
+
+- To uninstall the Resource Monitor, you can stop the service and remove it using the command line or through the `Control Panel` in Windows.
+
+## Conclusion
+
+Resource Monitor is a powerful tool for tracking system resource usage in real time. With its user-friendly interface and efficient data management, you can easily keep an eye on your system's performance.
+
+For any issues or contributions, please open an issue in the GitHub repository. Happy monitoring!
