@@ -16,6 +16,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=userdocs: Inno Setup Output
 UsePreviousLanguage=no
+CloseApplications=no 
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -36,12 +37,18 @@ Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\res
 Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\resource_monitor.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing Resource Monitor service..."
 ; Start the service
 Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting Resource Monitor service..."
+Filename: "http://localhost:{code:GetPort}/"; Description: "Open Resource Monitor"; Flags: shellexec postinstall nowait    
 
 [UninstallRun]
 ; Stop the service during uninstallation
 Filename: "{app}\nssm.exe"; Parameters: "stop ""{code:GetServiceName}"""; Flags: runhidden; RunOnceId: "StopResourceMonitor"
 ; Remove the service during uninstallation
 Filename: "{app}\nssm.exe"; Parameters: "remove ""{code:GetServiceName}"" confirm"; Flags: runhidden; RunOnceId: "RemoveResourceMonitor"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\venv"
+Type: files; Name: "{app}\resource_monitor.py"
+Type: filesandordirs; Name: "{app}"   
 
 [Code]
 var
@@ -52,14 +59,16 @@ var
 procedure InitializeWizard;
 begin
   ServiceNamePage := CreateInputQueryPage(wpWelcome,
-    'Service Name', 'Enter the service name for Resource Monitor',
-    'Please provide the name for the Windows Service (default is ResourceMonitor).');
-  ServiceNamePage.Add('Service Name:', False);
+    'Service Name', 'Enter the service name for Docker Monitor',
+    'Please provide the name for the Windows Service.');
+  ServiceNamePage.Add('Service Name (e.g. ResourceMonitor):', False);
+  ServiceNamePage.Values[0] := 'ResourceMonitor'
 
   PortPage := CreateInputQueryPage(wpWelcome,
     'Resource Monitor Port', 'Enter the desired port for Resource Monitor',
     'Please provide the port on which the Resource Monitor service should run.');
   PortPage.Add('Desired Port (e.g. 5553):', False);
+  PortPage.Values[0] := '5553'
 end;
 
 function GetPythonPath: String;
@@ -92,10 +101,17 @@ begin
     Result := ServiceNamePage.Values[0];
 end;
 
+function GetPort(Param: String): String;
+begin
+  Result := PortPage.Values[0];
+end; 
+
 function GetDefaultDirName(Param: string): string;
 begin
-  // Default installation directory for the application
-  Result := 'C:\Apps\ResourceMonitor';
+  if Assigned(ServiceNamePage) and (Trim(ServiceNamePage.Values[0]) <> '') then
+    Result := 'C:\Apps\' + ServiceNamePage.Values[0]
+  else
+    Result := 'C:\Apps\ResourceMonitor';
 end;
 
 function GetAppId(Param: string): string;
@@ -132,6 +148,17 @@ begin
     SaveStringsToFile(FilePath, Lines, False);
   end;
 end;
+
+procedure CurPageChanged(CurPage: Integer);
+begin
+  if CurPage = wpSelectDir then begin
+    if Assigned(ServiceNamePage) and (Trim(ServiceNamePage.Values[0]) <> '') then
+      WizardForm.DirEdit.Text := ExpandConstant('C:\Apps\' + ServiceNamePage.Values[0])
+    else
+      WizardForm.DirEdit.Text := ExpandConstant('C:\Apps\ResourceMonitor');
+  end;
+end;
+
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
