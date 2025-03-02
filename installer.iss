@@ -5,7 +5,7 @@
 AppName=Resource Monitor
 AppVersion=1.0
 AppId={code:GetAppId}
-DefaultDirName={code:GetDefaultDirName}  ; alapértelmezett: C:\Apps\ResourceMonitor
+DefaultDirName={code:GetDefaultDirName}
 DefaultGroupName=Resource Monitor
 UninstallDisplayIcon={app}\nssm.exe
 OutputBaseFilename=ResourceMonitorInstaller
@@ -26,26 +26,28 @@ Source: "templates\*"; DestDir: "{app}\templates"; Flags: ignoreversion recurses
 Source: "nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-; Lekéri a Python elérési útját
+; Get Python executable path and save to temporary file
 Filename: "cmd.exe"; Parameters: "/C where python > ""{tmp}\python_path.txt"""; Flags: runhidden
-; Másolás: a monitor.py-ból készítünk resource_monitor.py-t
-Filename: "cmd.exe"; Parameters: "/C copy ""{app}\monitor.py"" ""{app}\resource_monitor.py"""; Flags: runhidden; StatusMsg: "Másolás a resource_monitor.py fájlhoz..."
-; Kódolás konverzió: resource_monitor.py átkonvertálása UTF-8-ra
-Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\resource_monitor.py' | Set-Content -Path '{app}\resource_monitor.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "UTF-8 kódolás beállítása a resource_monitor.py fájlnál..."
-; Szolgáltatás telepítése: resource_monitor.py fájl használata
-Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\resource_monitor.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Resource Monitor szolgáltatás telepítése..."
-; Szolgáltatás indítása
-Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Resource Monitor szolgáltatás indítása..."
+; Copy monitor.py to resource_monitor.py
+Filename: "cmd.exe"; Parameters: "/C copy ""{app}\monitor.py"" ""{app}\resource_monitor.py"""; Flags: runhidden; StatusMsg: "Copying to resource_monitor.py file..."
+; Convert resource_monitor.py encoding to UTF-8
+Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\resource_monitor.py' | Set-Content -Path '{app}\resource_monitor.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Setting UTF-8 encoding for resource_monitor.py file..."
+; Install service using resource_monitor.py
+Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\resource_monitor.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing Resource Monitor service..."
+; Start the service
+Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting Resource Monitor service..."
 
 [UninstallRun]
+; Stop the service during uninstallation
 Filename: "{app}\nssm.exe"; Parameters: "stop ""{code:GetServiceName}"""; Flags: runhidden; RunOnceId: "StopResourceMonitor"
+; Remove the service during uninstallation
 Filename: "{app}\nssm.exe"; Parameters: "remove ""{code:GetServiceName}"" confirm"; Flags: runhidden; RunOnceId: "RemoveResourceMonitor"
 
 [Code]
 var
-  ServiceNamePage: TInputQueryWizardPage;
-  PortPage: TInputQueryWizardPage;
-  PythonExecutablePath: String;
+  ServiceNamePage: TInputQueryWizardPage;  // Page for service name input
+  PortPage: TInputQueryWizardPage;          // Page for port input
+  PythonExecutablePath: String;              // Variable to store Python path
 
 procedure InitializeWizard;
 begin
@@ -63,7 +65,7 @@ end;
 function GetPythonPath: String;
 var
   ResultCode: Integer;
-  Lines: TArrayOfString;
+  Lines: TArrayOfString;  // Array to hold lines from the temporary file
 begin
   Result := '';
   if Exec('cmd.exe', '/C where python > "' + ExpandConstant('{tmp}\python_path.txt') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
@@ -83,6 +85,7 @@ end;
 
 function GetServiceName(Param: String): String;
 begin
+  // Return user-defined service name or default value
   if (ServiceNamePage.Values[0] = '') then
     Result := 'ResourceMonitor'
   else
@@ -91,6 +94,7 @@ end;
 
 function GetDefaultDirName(Param: string): string;
 begin
+  // Default installation directory for the application
   Result := 'C:\Apps\ResourceMonitor';
 end;
 
@@ -100,6 +104,7 @@ var
   hash: Cardinal;
   i: Integer;
 begin
+  // Generate a unique application ID based on service name
   if (ServiceNamePage <> nil) and (Trim(ServiceNamePage.Values[0]) <> '') then
     svc := ServiceNamePage.Values[0]
   else
@@ -112,12 +117,12 @@ end;
 
 procedure ModifyMonitorFile(FilePath: string);
 var
-  Lines: TArrayOfString;
+  Lines: TArrayOfString;  // Array to hold lines of the monitor file
   I: Integer;
-  NewPort: string;
+  NewPort: string;        // Variable for new port value
 begin
   NewPort := PortPage.Values[0];
-  if NewPort = '' then NewPort := '5553';  // alapértelmezett port, ha nincs megadva
+  if NewPort = '' then NewPort := '5553';  // Default port if not specified
   if LoadStringsFromFile(FilePath, Lines) then begin
     for I := 0 to GetArrayLength(Lines) - 1 do begin
       if Pos('app.run(', Lines[I]) > 0 then begin
@@ -133,19 +138,19 @@ var
   ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
-    // Módosítja a monitor.py fájlt a felhasználó által megadott porttal
+    // Modify the monitor.py file with the user-specified port
     ModifyMonitorFile(ExpandConstant('{app}\monitor.py'));
 
-    // Lekéri a Python elérési utat
+    // Retrieve the Python executable path
     PythonExecutablePath := GetPythonPath();
     if PythonExecutablePath = '' then
       Exit;
 
-    // Ha nem létezik a virtuális környezet, létrehozza azt
+    // Create a virtual environment if it does not exist
     if not DirExists(ExpandConstant('{app}\venv')) then begin
       if Exec(PythonExecutablePath, '-m venv venv', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
         if ResultCode = 0 then begin
-          // Telepíti a szükséges csomagokat: psutil és flask
+          // Install required packages: psutil and flask
           Exec(ExpandConstant('{app}\venv\Scripts\pip.exe'), 'install psutil flask', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
           if ResultCode <> 0 then
             MsgBox('Failed to install required Python packages.', mbError, MB_OK);
@@ -154,14 +159,14 @@ begin
       end;
     end;
 
-    // Szolgáltatás telepítése
+    // Install the service
     if not Exec(ExpandConstant('{app}\nssm.exe'),
       'install "' + GetServiceName('') + '" "' + ExpandConstant('{app}\venv\Scripts\python.exe') + '" "' + ExpandConstant('{app}\resource_monitor.py') + '"',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       MsgBox('Failed to install ResourceMonitor service.', mbError, MB_OK)
     else
     begin
-      // Szolgáltatás indítása
+      // Start the service after installation
       if not Exec(ExpandConstant('{app}\nssm.exe'), 'start "' + GetServiceName('') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
         MsgBox('Failed to start ResourceMonitor service.', mbError, MB_OK);
     end;
@@ -170,5 +175,6 @@ end;
 
 function InitializeSetup: Boolean;
 begin
+  // Initialization for the setup
   Result := True;
 end;
