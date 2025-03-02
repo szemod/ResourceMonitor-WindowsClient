@@ -9,49 +9,44 @@ import time
 app = Flask(__name__)
 DATA_FILE = "history.json"
 
+# Előzmények betöltése a fájlból, ha létezik
 history = []
 if os.path.exists(DATA_FILE):
     try:
         with open(DATA_FILE, "r") as file:
             history = json.load(file)
-    except json.JSONDecodeError:
+            if not isinstance(history, list):  # Non-list case handling
+                history = []
+    except (json.JSONDecodeError, ValueError):
         history = []
 
 prev_net_io = psutil.net_io_counters()
 prev_disk_io = psutil.disk_io_counters()
-cpu_usage = 0.0  # Globális változó a CPU használat tárolására
-
-# Port konfigurálható változóként (alapértelmezett 5553)
-PORT = 5553
-
-def monitor_cpu():
-    """Folyamatosan frissíti a CPU használatot háttérben."""
-    global cpu_usage
-    while True:
-        cpu_usage = psutil.cpu_percent(interval=1)
-        time.sleep(1)
+cpu_usage = 0.0
 
 def monitor_system_resources():
-    """Folyamatosan gyűjti az adatokat a rendszer erőforrásairól háttérben."""
+    """Collect system resource data periodically."""
     global prev_net_io, prev_disk_io, history, cpu_usage
 
     while True:
+        # CPU és memória lekérdezés
+        cpu_usage = psutil.cpu_percent(interval=1)  # 1 másodperces intervallum
         memory = psutil.virtual_memory().percent
 
-        # Network usage
+        # Hálózati IO lekérdezés
         current_net_io = psutil.net_io_counters()
         net_sent = int((current_net_io.bytes_sent - prev_net_io.bytes_sent) / 1024)
         net_recv = int((current_net_io.bytes_recv - prev_net_io.bytes_recv) / 1024)
         prev_net_io = current_net_io
 
-        # Disk usage
+        # Lemez IO lekérdezés
         current_disk_io = psutil.disk_io_counters()
         disk_read = (current_disk_io.read_bytes - prev_disk_io.read_bytes) / 1024
         disk_write = (current_disk_io.write_bytes - prev_disk_io.write_bytes) / 1024
         prev_disk_io = current_disk_io
 
+        # Időbélyeg & új bejegyzés
         current_time = datetime.now()
-
         new_entry = {
             'time': current_time.strftime('%H:%M:%S'),
             'timestamp': current_time.timestamp(),
@@ -63,45 +58,52 @@ def monitor_system_resources():
             'disk_write': disk_write
         }
 
-        print(f"New Data: {new_entry}")
-
+        # Az új bejegyzés hozzáadása a történethez
         history.append(new_entry)
 
-        # Csak az elmúlt 168 óra adatait tartja meg
+        # Történet frissítése 7 nap elteltével
         one_hundred_sixty_eight_hours_ago = current_time.timestamp() - 168 * 3600
-        history = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
+        history[:] = [entry for entry in history if entry['timestamp'] >= one_hundred_sixty_eight_hours_ago]
 
-        save_history()
-        time.sleep(1)
+        time.sleep(3)  # Alvás a CPU terhelés csökkentéséért
 
 def save_history():
-    """Előzmények mentése fájlba."""
-    with open(DATA_FILE, "w") as file:
-        json.dump(history, file)
+    """Save history to a file periodically."""
+    while True:
+        # History írása a fájlba 10 másodpercenként
+        with open(DATA_FILE, "w") as file:
+            json.dump(history, file)
+        time.sleep(60)
+
+# Szálak indítása
+threading.Thread(target=monitor_system_resources, daemon=True).start()
+threading.Thread(target=save_history, daemon=True).start()
+
+@app.route('/')
+@app.route('/<int:period_in_hours>')
+def index(period_in_hours=0.5):
+    return render_template('index.html', period=period_in_hours)
+
+@app.route('/data')
+def data():
+    period = float(request.args.get('period', '0.5'))
+    filtered_data = filter_data_by_period(history, period)
+    averaged_data = average_data(filtered_data, period)
+    return jsonify(averaged_data)
 
 def filter_data_by_period(data, period_in_hours):
-    """Az adatokat szűri a megadott időszak szerint."""
+    """Filter data based on the specified time period."""
     current_time = datetime.now().timestamp()
     period_in_seconds = period_in_hours * 3600
-    filtered_data = [entry for entry in data if entry['timestamp'] >= current_time - period_in_seconds]
-    return filtered_data
+    return [entry for entry in data if entry['timestamp'] >= current_time - period_in_seconds]
 
 def average_data(data, period_in_hours):
-    """Az adatokat átlagolja a megadott időszak szerint."""
+    """Average the data over the specified time period."""
     if not data:
         return []
 
-    if period_in_hours == 0.5:
-        return data
-
-    if period_in_hours == 8:
-        step = 16
-    elif period_in_hours == 24:
-        step = 48
-    elif period_in_hours == 168:
-        step = 336
-    else:
-        step = 1
+    # Lépés meghatározása az átlagoláshoz
+    step = {8: 16, 24: 48, 168: 336}.get(period_in_hours, 1)
 
     averaged_data = []
     for i in range(0, len(data), step):
@@ -121,37 +123,5 @@ def average_data(data, period_in_hours):
 
     return averaged_data
 
-# Indítjuk a háttérszálakat a monitorozáshoz
-cpu_thread = threading.Thread(target=monitor_cpu, daemon=True)
-cpu_thread.start()
-
-resource_thread = threading.Thread(target=monitor_system_resources, daemon=True)
-resource_thread.start()
-
-@app.route('/')
-def index():
-    return render_template('index.html', period='0.5')
-
-@app.route('/8')
-def index_8h():
-    return render_template('index.html', period='8')
-
-@app.route('/24')
-def index_24h():
-    return render_template('index.html', period='24')
-
-@app.route('/168')
-def index_168h():
-    return render_template('index.html', period='168')
-
-@app.route('/data')
-def data():
-    global history
-    period = request.args.get('period', '0.5')
-    period_in_hours = float(period)
-    filtered_data = filter_data_by_period(history, period_in_hours)
-    averaged_data = average_data(filtered_data, period_in_hours)
-    return jsonify(averaged_data)
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=PORT, debug=True)
+    app.run(host='0.0.0.0', port=5553, debug=False)
