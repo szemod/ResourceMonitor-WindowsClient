@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=Resource Monitor
-AppVersion=1.0
+AppVersion=1.1
 AppId={code:GetAppId}
 DefaultDirName={code:GetDefaultDirName}
 DefaultGroupName=Resource Monitor
