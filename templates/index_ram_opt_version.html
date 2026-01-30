@@ -1,1 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Resource Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #2c3e50; color: #ecf0f1; font-family: Arial,sans-serif; margin:0; padding:0; }
+        .chart-container { display:flex; flex-wrap:wrap; justify-content:space-around; padding:10px; }
+        .chart-item { width:45%; margin:10px; background:#34495e; padding:10px; border-radius:5px; }
+        canvas { background:#2c3e50; border-radius:5px; }
+        .chart-title { text-align:left; font-size:22px; margin-bottom:5px; }
+        .button-container { display:flex; justify-content:center; margin-top:20px; }
+        .period-button { background:#34495e; color:#ecf0f1; border:none; padding:10px 20px; margin:0 5px; cursor:pointer; border-radius:5px; font-size:18px; }
+        .period-button:hover { background:#27ae60; }
+        .period-button.active { background:#27ae60; font-weight:bold; }
+        .view-period-text { font-size:28px; color:#ecf0f1; text-align:center; margin-top:20px; }
+        @media (max-aspect-ratio:1/1) { .chart-item { width:90%; } .chart-container { flex-direction:column; } .chart-title { font-size:20px; } }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        <div class="chart-item">
+            <div class="chart-title" id="combinedTitle">CPU & Memory Usage: 0% / 0%</div>
+            <canvas id="combinedChart" height="300"></canvas>
+        </div>
+        <div class="chart-item">
+            <div class="chart-title" id="diskTitle">Disk Read/Write: 0 KB/s</div>
+            <canvas id="diskChart" height="300"></canvas>
+        </div>
+        <div class="chart-item">
+            <div class="chart-title" id="networkTitle">Network Sent/Recv: 0 KB/s</div>
+            <canvas id="networkChart" height="300"></canvas>
+        </div>
+    </div>
+    
+    <!-- JAVÍTOTT GOMBOK -->
+    <div class="button-container">
+        <a href="/0.5"><button class="period-button active" id="0.5">30 minutes</button></a>
+        <a href="/8"><button class="period-button" id="8">8 hours</button></a>
+        <a href="/24"><button class="period-button" id="24">24 hours</button></a>
+        <a href="/168"><button class="period-button" id="168">168 hours</button></a>
+    </div>
+    
+    <div id="viewPeriodText" class="view-period-text">View 30 minutes</div>
+
+    <script>
+        // Chart.js grafikonok
+        const combinedChart = new Chart(document.getElementById('combinedChart').getContext('2d'), {
+            type: 'line', data: { labels:[], datasets:[{label:'CPU %',data:[],borderColor:'rgba(75,192,192,1)',borderWidth:2,fill:false,pointRadius:0,tension:0.1},{label:'Memory %',data:[],borderColor:'rgba(54,162,235,1)',borderWidth:2,fill:false,pointRadius:0,tension:0.1}] },
+            options: {animation:false,responsive:true,scales:{y:{beginAtZero:true,max:100}},plugins:{legend:{display:true,position:'top'}}}
+        });
+        
+        const diskChart = new Chart(document.getElementById('diskChart').getContext('2d'), {
+            type: 'line', data: { labels:[], datasets:[{label:'Disk Read KB/s',data:[],borderColor:'rgba(75,192,192,1)',borderWidth:2,fill:false,pointRadius:0,tension:0.1},{label:'Disk Write KB/s',data:[],borderColor:'rgba(255,99,132,1)',borderWidth:2,fill:false,pointRadius:0,tension:0.1}] },
+            options: {animation:false,responsive:true,plugins:{legend:{display:true,position:'top'}}}
+        });
+        
+        const networkChart = new Chart(document.getElementById('networkChart').getContext('2d'), {
+            type: 'line', data: { labels:[], datasets:[{label:'Net Sent KB/s',data:[],borderColor:'rgba(153,102,255,1)',borderWidth:2,fill:false,pointRadius:0,tension:0.1},{label:'Net Recv KB/s',data:[],borderColor:'rgba(255,159,64,1)',borderWidth:2,fill:false,pointRadius:0,tension:0.1}] },
+            options: {animation:false,responsive:true,plugins:{legend:{display:true,position:'top'}}}
+        });
+
+        let fetchInterval = 2000;
+
+        async function fetchData() {
+            let period = window.location.pathname.split('/')[1] || '0.5';
+            try {
+                const response = await fetch(`/data?period=${period}`);
+                const data = await response.json();
+                updateCharts(data);
+            } catch(e) { console.error('Fetch error:', e); }
+        }
+
+        function updateCharts(data) {
+            if(!data?.length) return;
+            const labels = data.map(e=>e.time);
+            const latest = data[data.length-1];
+            
+            document.getElementById('combinedTitle').textContent = `CPU & Memory: ${latest.cpu.toFixed(0)}% / ${latest.memory.toFixed(0)}%`;
+            
+            const fmtKB = v => v>1024 ? (v/1024).toFixed(1)+'MB/s' : v.toFixed(0)+'KB/s';
+            document.getElementById('diskTitle').textContent = `Disk R/W: ${fmtKB(latest.disk_read)} / ${fmtKB(latest.disk_write)}`;
+            document.getElementById('networkTitle').textContent = `Net S/R: ${fmtKB(latest.network_sent)} / ${fmtKB(latest.network_recv)}`;
+
+            combinedChart.data.labels=labels; combinedChart.data.datasets[0].data=data.map(e=>e.cpu); combinedChart.data.datasets[1].data=data.map(e=>e.memory); combinedChart.update('none');
+            diskChart.data.labels=labels; diskChart.data.datasets[0].data=data.map(e=>e.disk_read); diskChart.data.datasets[1].data=data.map(e=>e.disk_write); diskChart.update('none');
+            networkChart.data.labels=labels; networkChart.data.datasets[0].data=data.map(e=>e.network_sent); networkChart.data.datasets[1].data=data.map(e=>e.network_recv); networkChart.update('none');
+        }
+
+        function setActiveButton() {
+            const period = window.location.pathname.split('/')[1] || '0.5';
+            document.querySelectorAll('.period-button').forEach(btn => {
+                btn.classList.toggle('active', btn.id === period);
+            });
+        }
+
+        function updateViewPeriod() {
+            const period = window.location.pathname.split('/')[1] || '0.5';
+            const map = {'0.5':'30 minutes','8':'8 hours','24':'24 hours','168':'168 hours'};
+            document.getElementById('viewPeriodText').textContent = `View ${map[period] || 'Unknown'}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setActiveButton();
+            updateViewPeriod();
+            fetchData();
+            setInterval(fetchData, fetchInterval);
+        });
+    </script>
+</body>
+</html>
 
